@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Tone Control</string>
+    <string name="preset_label">Preset / Template</string>
+    <string name="save_template">Save</string>
+    <string name="delete_template">Delete</string>
+    <string name="band_low_label">Low</string>
+    <string name="band_mid_label">Mid</string>
+    <string name="band_high_label">High</string>
+    <string name="db_unit">dB</string>
+    <string name="min_db">-25 dB</string>
+    <string name="zero_db">0 dB</string>
+    <string name="max_db">+25 dB</string>
+    <string name="input_hint">0</string>
+    <string name="dialog_save_title">Save Template</string>
+    <string name="dialog_save_hint">Enter template name</string>
+    <string name="dialog_cancel">Cancel</string>
+</resources>
