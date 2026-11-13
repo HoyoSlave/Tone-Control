@@ -48,9 +48,9 @@ public class MainActivity extends Activity {
             15360.0f
     };
 
-    public static final int MIN_DB = -25;
-    public static final int MAX_DB = 25;
-    public static final int OFFSET = 25; // Maps [-25..25] dB to SeekBar [0..50]
+    public static final int MIN_DB = -16;
+    public static final int MAX_DB = 16;
+    public static final int OFFSET = 16; // Maps [-16..16] dB to SeekBar [0..32]
 
     private Spinner spinnerPresets;
     private Button btnSaveTemplate;
@@ -124,7 +124,7 @@ public class MainActivity extends Activity {
     private void loadTemplates() {
         templates.clear();
         templates.add(new ToneTemplate("Neutral", new int[]{0, 0, 0, 0, 0}, true));
-        templates.add(new ToneTemplate("BassBoost", new int[]{5, 10, 0, 0, 0}, true));
+        templates.add(new ToneTemplate("BassBoost", new int[]{8, 4, 0, 0, 0}, true));
 
         String rawJson = prefs.getString(KEY_CUSTOM_TEMPLATES, "[]");
         try {

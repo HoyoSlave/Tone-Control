@@ -10,9 +10,9 @@
     <string name="band_high_label">High</string>
     <string name="band_highest_label">Highest</string>
     <string name="db_unit">dB</string>
-    <string name="min_db">-25 dB</string>
+    <string name="min_db">-16 dB</string>
     <string name="zero_db">0 dB</string>
-    <string name="max_db">+25 dB</string>
+    <string name="max_db">+16 dB</string>
     <string name="input_hint">0</string>
     <string name="dialog_save_title">Save Template</string>
     <string name="dialog_save_hint">Enter template name</string>
