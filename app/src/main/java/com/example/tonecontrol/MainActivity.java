@@ -51,6 +51,7 @@ public class MainActivity extends Activity {
     public static final int MIN_DB = -16;
     public static final int MAX_DB = 16;
     public static final int OFFSET = 16; // Maps [-16..16] dB to SeekBar [0..32]
+    public static final int SEEK_MAX = MAX_DB - MIN_DB; // 32
 
     private Spinner spinnerPresets;
     private Button btnSaveTemplate;
@@ -111,6 +112,7 @@ public class MainActivity extends Activity {
 
         for (int i = 0; i < BAND_COUNT; i++) {
             seekBars[i] = findViewById(seekIds[i]);
+            seekBars[i].setMax(SEEK_MAX);
             editTexts[i] = findViewById(editIds[i]);
         }
 
@@ -140,7 +142,6 @@ public class MainActivity extends Activity {
                             gains[b] = clampDb(gainsArr.optInt(b, 0));
                         }
                     } else {
-                        // Backward-compatible fallback for 3-band JSON format
                         if (BAND_COUNT >= 3) {
                             gains[0] = clampDb(obj.optInt("low", 0));
                             gains[1] = clampDb(obj.optInt("mid", 0));
@@ -314,8 +315,10 @@ public class MainActivity extends Activity {
         spinnerPresets.setSelection(presetIdx, false);
         isApplyingPreset = false;
 
+        SharedPreferences.Editor editor = prefs.edit();
         for (int b = 0; b < BAND_COUNT; b++) {
             int savedVal = clampDb(prefs.getInt(BAND_KEYS[b], 0));
+            editor.putInt(BAND_KEYS[b], savedVal);
             isUpdatingBand[b] = true;
             seekBars[b].setProgress(savedVal + OFFSET);
             String text = String.valueOf(savedVal);
@@ -323,10 +326,11 @@ public class MainActivity extends Activity {
             editTexts[b].setSelection(text.length());
             isUpdatingBand[b] = false;
         }
+        editor.apply();
     }
 
     private void saveAndApplyBand(int bandIndex, int dbValue) {
-        prefs.edit().putInt(BAND_KEYS[bandIndex], dbValue).apply();
+        prefs.edit().putInt(BAND_KEYS[bandIndex], clampDb(dbValue)).apply();
         applyAndEnsureBackgroundService();
     }
 
@@ -376,6 +380,11 @@ public class MainActivity extends Activity {
                         int clamped = clampDb(parsed);
                         isUpdatingBand[index] = true;
                         seekBars[index].setProgress(clamped + OFFSET);
+                        if (clamped != parsed) {
+                            String clampedText = String.valueOf(clamped);
+                            editTexts[index].setText(clampedText);
+                            editTexts[index].setSelection(clampedText.length());
+                        }
                         saveAndApplyBand(index, clamped);
                         isUpdatingBand[index] = false;
                     }
@@ -400,7 +409,7 @@ public class MainActivity extends Activity {
 
     private void normalizeInputField(int index) {
         Integer parsed = parseDbInput(editTexts[index].getText().toString());
-        int dbValue = (parsed != null) ? clampDb(parsed) : (seekBars[index].getProgress() - OFFSET);
+        int dbValue = (parsed != null) ? clampDb(parsed) : clampDb(seekBars[index].getProgress() - OFFSET);
         isUpdatingBand[index] = true;
         seekBars[index].setProgress(dbValue + OFFSET);
         String formatted = String.valueOf(dbValue);

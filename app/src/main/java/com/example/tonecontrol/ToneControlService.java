@@ -41,7 +41,7 @@ public class ToneControlService extends Service {
                         1,
                         true, MainActivity.BAND_COUNT,
                         false, 0,
-                        true, MainActivity.BAND_COUNT,
+                        false, 0,
                         false
                 );
                 DynamicsProcessing.Config config = builder.build();
@@ -52,11 +52,13 @@ public class ToneControlService extends Service {
             }
         }
 
-        try {
-            equalizer = new Equalizer(0, 0);
-            equalizer.setEnabled(true);
-        } catch (Exception ignored) {
-            equalizer = null;
+        if (dynamicsProcessing == null) {
+            try {
+                equalizer = new Equalizer(0, 0);
+                equalizer.setEnabled(true);
+            } catch (Exception ignored) {
+                equalizer = null;
+            }
         }
         initialized = true;
     }
@@ -76,12 +78,11 @@ public class ToneControlService extends Service {
             try {
                 for (int i = 0; i < MainActivity.BAND_COUNT; i++) {
                     float cutoff = MainActivity.BAND_CUTOFF_HZ[i];
-                    float halfGain = gains[i] * 0.5f;
-                    DynamicsProcessing.EqBand preBand = new DynamicsProcessing.EqBand(true, cutoff, halfGain);
-                    DynamicsProcessing.EqBand postBand = new DynamicsProcessing.EqBand(true, cutoff, halfGain);
+                    float clampedGain = (float) MainActivity.clampDb(gains[i]);
+                    DynamicsProcessing.EqBand preBand = new DynamicsProcessing.EqBand(true, cutoff, clampedGain);
                     dynamicsProcessing.setPreEqBandAllChannelsTo(i, preBand);
-                    dynamicsProcessing.setPostEqBandAllChannelsTo(i, postBand);
                 }
+                return;
             } catch (Exception ignored) {}
         }
 
@@ -93,7 +94,8 @@ public class ToneControlService extends Service {
                     int centerFreqMilliHz = equalizer.getCenterFreq(b);
                     float centerHz = centerFreqMilliHz / 1000.0f;
                     int mappedIdx = mapFreqToBandIndex(centerHz);
-                    short targetMb = (short) Math.max(range[0], Math.min(range[1], gains[mappedIdx] * 100));
+                    int clampedDb = MainActivity.clampDb(gains[mappedIdx]);
+                    short targetMb = (short) Math.max(range[0], Math.min(range[1], clampedDb * 100));
                     equalizer.setBandLevel(b, targetMb);
                 }
             } catch (Exception ignored) {}
