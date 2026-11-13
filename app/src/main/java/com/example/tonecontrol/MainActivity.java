@@ -2,9 +2,14 @@ package com.example.tonecontrol;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.PowerManager;
+import android.provider.Settings;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.KeyEvent;
@@ -42,10 +47,10 @@ public class MainActivity extends Activity {
 
     public static final float[] BAND_CUTOFF_HZ = new float[]{
             60.0f,
-            240.0f,
-            960.0f,
-            3840.0f,
-            15360.0f
+            256.0f,
+            1950.0f,
+            4680.0f,
+            20000.0f
     };
 
     public static final int MIN_DB = -16;
@@ -120,13 +125,29 @@ public class MainActivity extends Activity {
         setupPresetControls();
         setupBandControls();
         restoreSavedValues();
+        requestBatteryOptimizationExemptionIfNeeded();
         applyAndEnsureBackgroundService();
+    }
+
+    private void requestBatteryOptimizationExemptionIfNeeded() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            try {
+                PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+                if (pm != null && !pm.isIgnoringBatteryOptimizations(getPackageName())) {
+                    Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+                    intent.setData(Uri.parse("package:" + getPackageName()));
+                    startActivity(intent);
+                }
+            } catch (Exception ignored) {}
+        }
     }
 
     private void loadTemplates() {
         templates.clear();
         templates.add(new ToneTemplate("Neutral", new int[]{0, 0, 0, 0, 0}, true));
-        templates.add(new ToneTemplate("BassBoost", new int[]{8, 4, 0, 0, 0}, true));
+        templates.add(new ToneTemplate("FixMuddy", new int[]{0, -4, 0, 0, 0}, true));
+        templates.add(new ToneTemplate("FixSharp", new int[]{0, 0, 0, -4, 0}, true));
+        templates.add(new ToneTemplate("FixBoth", new int[]{0, -4, 0, -4, 0}, true));
 
         String rawJson = prefs.getString(KEY_CUSTOM_TEMPLATES, "[]");
         try {
@@ -336,9 +357,7 @@ public class MainActivity extends Activity {
 
     private void applyAndEnsureBackgroundService() {
         ToneControlService.applyFromPreferences(this);
-        try {
-            startService(new Intent(this, ToneControlService.class));
-        } catch (Exception ignored) {}
+        ToneControlService.startOrUpdateService(this, null);
     }
 
     private void setupBandControls() {

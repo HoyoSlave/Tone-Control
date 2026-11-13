@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Tone Control</string>
-    <string name="preset_label">Preset / Template</string>
+    <string name="preset_label">Template</string>
     <string name="save_template">Save</string>
     <string name="delete_template">Delete</string>
     <string name="band_lowest_label">Lowest</string>
@@ -15,6 +15,6 @@
     <string name="max_db">+16 dB</string>
     <string name="input_hint">0</string>
     <string name="dialog_save_title">Save Template</string>
-    <string name="dialog_save_hint">Enter template name</string>
+    <string name="dialog_save_hint"></string>
     <string name="dialog_cancel">Cancel</string>
 </resources>
