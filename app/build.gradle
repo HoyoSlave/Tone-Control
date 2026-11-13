@@ -1,0 +1,33 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.example.tonecontrol'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.example.tonecontrol"
+        minSdk 21
+        targetSdk 34
+        versionCode 8
+        versionName "1.7"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.debug
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    // Pure stock Android SDK (no external UI libraries required)
+}
