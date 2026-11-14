@@ -2,10 +2,8 @@ package com.example.tonecontrol;
 
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Build;
@@ -21,6 +19,8 @@ import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
 import android.widget.SeekBar;
 import android.widget.Spinner;
 import android.widget.TextView;
@@ -36,7 +36,14 @@ public class MainActivity extends Activity {
 
     public static final String PREFS_NAME = "tone_control_prefs";
     public static final String KEY_CUSTOM_TEMPLATES = "custom_templates_5band_json";
-    public static final String KEY_SELECTED_PRESET = "selected_preset_5band_name";
+    public static final String KEY_SELECTED_PRESET_BOTH = "selected_preset_5band_name";
+    public static final String KEY_SELECTED_PRESET_LEFT = "selected_preset_5band_name_l";
+    public static final String KEY_SELECTED_PRESET_RIGHT = "selected_preset_5band_name_r";
+    public static final String KEY_SELECTED_CHANNEL_MODE = "selected_channel_mode";
+
+    public static final int CHANNEL_MODE_BOTH = 0;
+    public static final int CHANNEL_MODE_LEFT = 1;
+    public static final int CHANNEL_MODE_RIGHT = 2;
 
     public static final int BAND_COUNT = 5;
     public static final String[] BAND_KEYS = new String[]{
@@ -45,6 +52,22 @@ public class MainActivity extends Activity {
             "mid_db",
             "high_db",
             "highest_db"
+    };
+
+    public static final String[] BAND_KEYS_LEFT = new String[]{
+            "lowest_db_l",
+            "low_db_l",
+            "mid_db_l",
+            "high_db_l",
+            "highest_db_l"
+    };
+
+    public static final String[] BAND_KEYS_RIGHT = new String[]{
+            "lowest_db_r",
+            "low_db_r",
+            "mid_db_r",
+            "high_db_r",
+            "highest_db_r"
     };
 
     public static final float[] BAND_CUTOFF_HZ = new float[]{
@@ -60,8 +83,11 @@ public class MainActivity extends Activity {
     public static final int OFFSET = 16; // Maps [-16..16] dB to SeekBar [0..32]
     public static final int SEEK_MAX = MAX_DB - MIN_DB; // 32
 
-    private TextView textSessionStatus;
-    private Button btnRescanSessions;
+    private RadioGroup radioGroupChannel;
+    private RadioButton radioChannelBoth;
+    private RadioButton radioChannelLeft;
+    private RadioButton radioChannelRight;
+
     private Spinner spinnerPresets;
     private Button btnSaveTemplate;
     private Button btnDeleteTemplate;
@@ -70,27 +96,35 @@ public class MainActivity extends Activity {
     private final EditText[] editTexts = new EditText[BAND_COUNT];
     private final boolean[] isUpdatingBand = new boolean[BAND_COUNT];
     private boolean isApplyingPreset = false;
+    private boolean isSwitchingChannel = false;
 
+    private int currentChannelMode = CHANNEL_MODE_BOTH;
     private SharedPreferences prefs;
-
-    private final BroadcastReceiver sessionUpdateReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            refreshDiagnosticStatus();
-        }
-    };
 
     private static class ToneTemplate {
         final String name;
         final int[] gains;
+        final int[] gainsL;
+        final int[] gainsR;
+        final boolean hasSeparateLR;
         final boolean builtIn;
 
         ToneTemplate(String name, int[] gains, boolean builtIn) {
+            this(name, gains, gains, gains, false, builtIn);
+        }
+
+        ToneTemplate(String name, int[] gains, int[] gainsL, int[] gainsR, boolean hasSeparateLR, boolean builtIn) {
             this.name = name;
             this.gains = new int[BAND_COUNT];
+            this.gainsL = new int[BAND_COUNT];
+            this.gainsR = new int[BAND_COUNT];
             for (int i = 0; i < BAND_COUNT; i++) {
-                this.gains[i] = (gains != null && i < gains.length) ? clampDb(gains[i]) : 0;
+                int base = (gains != null && i < gains.length) ? clampDb(gains[i]) : 0;
+                this.gains[i] = base;
+                this.gainsL[i] = (gainsL != null && i < gainsL.length) ? clampDb(gainsL[i]) : base;
+                this.gainsR[i] = (gainsR != null && i < gainsR.length) ? clampDb(gainsR[i]) : base;
             }
+            this.hasSeparateLR = hasSeparateLR;
             this.builtIn = builtIn;
         }
     }
@@ -106,8 +140,11 @@ public class MainActivity extends Activity {
 
         prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
 
-        textSessionStatus = findViewById(R.id.text_session_status);
-        btnRescanSessions = findViewById(R.id.btn_rescan_sessions);
+        radioGroupChannel = findViewById(R.id.radio_group_channel);
+        radioChannelBoth = findViewById(R.id.radio_channel_both);
+        radioChannelLeft = findViewById(R.id.radio_channel_left);
+        radioChannelRight = findViewById(R.id.radio_channel_right);
+
         spinnerPresets = findViewById(R.id.spinner_presets);
         btnSaveTemplate = findViewById(R.id.btn_save_template);
         btnDeleteTemplate = findViewById(R.id.btn_delete_template);
@@ -134,44 +171,109 @@ public class MainActivity extends Activity {
             editTexts[i] = findViewById(editIds[i]);
         }
 
-        btnRescanSessions.setOnClickListener(v -> {
-            ToneControlService.triggerActiveSessionScan(this);
-            v.postDelayed(this::refreshDiagnosticStatus, 400);
-        });
-
+        ensureChannelPrefsInitialized();
         loadTemplates();
+        setupChannelControls();
         setupPresetControls();
         setupBandControls();
         restoreSavedValues();
         requestBatteryOptimizationExemptionIfNeeded();
         applyAndEnsureBackgroundService();
-        refreshDiagnosticStatus();
     }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-        IntentFilter filter = new IntentFilter(ToneControlService.ACTION_SESSIONS_UPDATED);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(sessionUpdateReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
-        } else {
-            registerReceiver(sessionUpdateReceiver, filter);
+    private void ensureChannelPrefsInitialized() {
+        SharedPreferences.Editor editor = prefs.edit();
+        boolean changed = false;
+        for (int b = 0; b < BAND_COUNT; b++) {
+            int baseVal = clampDb(prefs.getInt(BAND_KEYS[b], 0));
+            if (!prefs.contains(BAND_KEYS_LEFT[b])) {
+                editor.putInt(BAND_KEYS_LEFT[b], baseVal);
+                changed = true;
+            }
+            if (!prefs.contains(BAND_KEYS_RIGHT[b])) {
+                editor.putInt(BAND_KEYS_RIGHT[b], baseVal);
+                changed = true;
+            }
         }
-        ToneControlService.triggerActiveSessionScan(this);
-        refreshDiagnosticStatus();
+        if (changed) {
+            editor.apply();
+        }
     }
 
-    @Override
-    protected void onPause() {
-        try {
-            unregisterReceiver(sessionUpdateReceiver);
-        } catch (Exception ignored) {}
-        super.onPause();
+    private void setupChannelControls() {
+        currentChannelMode = prefs.getInt(KEY_SELECTED_CHANNEL_MODE, CHANNEL_MODE_BOTH);
+        isSwitchingChannel = true;
+        if (currentChannelMode == CHANNEL_MODE_LEFT) {
+            radioChannelLeft.setChecked(true);
+        } else if (currentChannelMode == CHANNEL_MODE_RIGHT) {
+            radioChannelRight.setChecked(true);
+        } else {
+            currentChannelMode = CHANNEL_MODE_BOTH;
+            radioChannelBoth.setChecked(true);
+        }
+        isSwitchingChannel = false;
+
+        radioGroupChannel.setOnCheckedChangeListener((group, checkedId) -> {
+            if (isSwitchingChannel) return;
+            if (checkedId == R.id.radio_channel_left) {
+                currentChannelMode = CHANNEL_MODE_LEFT;
+            } else if (checkedId == R.id.radio_channel_right) {
+                currentChannelMode = CHANNEL_MODE_RIGHT;
+            } else {
+                currentChannelMode = CHANNEL_MODE_BOTH;
+            }
+            prefs.edit().putInt(KEY_SELECTED_CHANNEL_MODE, currentChannelMode).apply();
+            refreshUiForCurrentChannel();
+        });
     }
 
-    private void refreshDiagnosticStatus() {
-        if (textSessionStatus != null) {
-            textSessionStatus.setText(ToneControlService.getDiagnosticStatus(this));
+    private String getPresetKeyForCurrentMode() {
+        if (currentChannelMode == CHANNEL_MODE_LEFT) {
+            return KEY_SELECTED_PRESET_LEFT;
+        } else if (currentChannelMode == CHANNEL_MODE_RIGHT) {
+            return KEY_SELECTED_PRESET_RIGHT;
+        } else {
+            return KEY_SELECTED_PRESET_BOTH;
+        }
+    }
+
+    private int getSavedBandForCurrentMode(int bandIndex) {
+        if (currentChannelMode == CHANNEL_MODE_LEFT) {
+            int fallback = prefs.getInt(BAND_KEYS[bandIndex], 0);
+            return clampDb(prefs.getInt(BAND_KEYS_LEFT[bandIndex], fallback));
+        } else if (currentChannelMode == CHANNEL_MODE_RIGHT) {
+            int fallback = prefs.getInt(BAND_KEYS[bandIndex], 0);
+            return clampDb(prefs.getInt(BAND_KEYS_RIGHT[bandIndex], fallback));
+        } else {
+            int left = prefs.getInt(BAND_KEYS_LEFT[bandIndex], prefs.getInt(BAND_KEYS[bandIndex], 0));
+            return clampDb(prefs.getInt(BAND_KEYS[bandIndex], left));
+        }
+    }
+
+    private void refreshUiForCurrentChannel() {
+        String presetKey = getPresetKeyForCurrentMode();
+        String fallbackPreset = prefs.getString(KEY_SELECTED_PRESET_BOTH, "Neutral");
+        String savedPreset = prefs.getString(presetKey, fallbackPreset);
+        int presetIdx = 0;
+        for (int i = 0; i < templates.size(); i++) {
+            if (templates.get(i).name.equals(savedPreset)) {
+                presetIdx = i;
+                break;
+            }
+        }
+
+        isApplyingPreset = true;
+        spinnerPresets.setSelection(presetIdx, false);
+        isApplyingPreset = false;
+
+        for (int b = 0; b < BAND_COUNT; b++) {
+            int savedVal = getSavedBandForCurrentMode(b);
+            isUpdatingBand[b] = true;
+            seekBars[b].setProgress(savedVal + OFFSET);
+            String text = String.valueOf(savedVal);
+            editTexts[b].setText(text);
+            editTexts[b].setSelection(text.length());
+            isUpdatingBand[b] = false;
         }
     }
 
@@ -203,6 +305,8 @@ public class MainActivity extends Activity {
                 String name = obj.optString("name", "").trim();
                 if (!name.isEmpty()) {
                     int[] gains = new int[BAND_COUNT];
+                    int[] gainsL = new int[BAND_COUNT];
+                    int[] gainsR = new int[BAND_COUNT];
                     JSONArray gainsArr = obj.optJSONArray("gains");
                     if (gainsArr != null) {
                         for (int b = 0; b < BAND_COUNT; b++) {
@@ -215,7 +319,16 @@ public class MainActivity extends Activity {
                             gains[2] = clampDb(obj.optInt("high", 0));
                         }
                     }
-                    templates.add(new ToneTemplate(name, gains, false));
+
+                    JSONArray gainsLArr = obj.optJSONArray("gains_l");
+                    JSONArray gainsRArr = obj.optJSONArray("gains_r");
+                    boolean hasLR = (gainsLArr != null && gainsRArr != null);
+                    for (int b = 0; b < BAND_COUNT; b++) {
+                        gainsL[b] = (gainsLArr != null) ? clampDb(gainsLArr.optInt(b, gains[b])) : gains[b];
+                        gainsR[b] = (gainsRArr != null) ? clampDb(gainsRArr.optInt(b, gains[b])) : gains[b];
+                    }
+
+                    templates.add(new ToneTemplate(name, gains, gainsL, gainsR, hasLR, false));
                 }
             }
         } catch (JSONException ignored) {}
@@ -231,10 +344,16 @@ public class MainActivity extends Activity {
                     JSONObject obj = new JSONObject();
                     obj.put("name", t.name);
                     JSONArray gainsArr = new JSONArray();
+                    JSONArray gainsLArr = new JSONArray();
+                    JSONArray gainsRArr = new JSONArray();
                     for (int b = 0; b < BAND_COUNT; b++) {
                         gainsArr.put(t.gains[b]);
+                        gainsLArr.put(t.gainsL[b]);
+                        gainsRArr.put(t.gainsR[b]);
                     }
                     obj.put("gains", gainsArr);
+                    obj.put("gains_l", gainsLArr);
+                    obj.put("gains_r", gainsRArr);
                     array.put(obj);
                 } catch (JSONException ignored) {}
             }
@@ -267,8 +386,18 @@ public class MainActivity extends Activity {
                 if (isApplyingPreset) return;
                 if (position >= 0 && position < templates.size()) {
                     ToneTemplate selected = templates.get(position);
-                    prefs.edit().putString(KEY_SELECTED_PRESET, selected.name).apply();
-                    applyTemplateValues(selected.gains);
+                    SharedPreferences.Editor editor = prefs.edit();
+                    if (currentChannelMode == CHANNEL_MODE_BOTH) {
+                        editor.putString(KEY_SELECTED_PRESET_BOTH, selected.name);
+                        editor.putString(KEY_SELECTED_PRESET_LEFT, selected.name);
+                        editor.putString(KEY_SELECTED_PRESET_RIGHT, selected.name);
+                    } else if (currentChannelMode == CHANNEL_MODE_LEFT) {
+                        editor.putString(KEY_SELECTED_PRESET_LEFT, selected.name);
+                    } else {
+                        editor.putString(KEY_SELECTED_PRESET_RIGHT, selected.name);
+                    }
+                    editor.apply();
+                    applyTemplateForCurrentMode(selected);
                 }
             }
 
@@ -295,8 +424,21 @@ public class MainActivity extends Activity {
                     }
 
                     int[] currentGains = new int[BAND_COUNT];
+                    int[] currentGainsL = new int[BAND_COUNT];
+                    int[] currentGainsR = new int[BAND_COUNT];
                     for (int b = 0; b < BAND_COUNT; b++) {
-                        currentGains[b] = clampDb(seekBars[b].getProgress() - OFFSET);
+                        int sliderVal = clampDb(seekBars[b].getProgress() - OFFSET);
+                        currentGains[b] = sliderVal;
+                        if (currentChannelMode == CHANNEL_MODE_BOTH) {
+                            currentGainsL[b] = sliderVal;
+                            currentGainsR[b] = sliderVal;
+                        } else if (currentChannelMode == CHANNEL_MODE_LEFT) {
+                            currentGainsL[b] = sliderVal;
+                            currentGainsR[b] = clampDb(prefs.getInt(BAND_KEYS_RIGHT[b], prefs.getInt(BAND_KEYS[b], 0)));
+                        } else {
+                            currentGainsL[b] = clampDb(prefs.getInt(BAND_KEYS_LEFT[b], prefs.getInt(BAND_KEYS[b], 0)));
+                            currentGainsR[b] = sliderVal;
+                        }
                     }
 
                     int existingIndex = -1;
@@ -313,8 +455,10 @@ public class MainActivity extends Activity {
                             return;
                         }
                         System.arraycopy(currentGains, 0, existing.gains, 0, BAND_COUNT);
+                        System.arraycopy(currentGainsL, 0, existing.gainsL, 0, BAND_COUNT);
+                        System.arraycopy(currentGainsR, 0, existing.gainsR, 0, BAND_COUNT);
                     } else {
-                        templates.add(new ToneTemplate(name, currentGains, false));
+                        templates.add(new ToneTemplate(name, currentGains, currentGainsL, currentGainsR, true, false));
                         existingIndex = templates.size() - 1;
                     }
 
@@ -322,7 +466,7 @@ public class MainActivity extends Activity {
                     refreshTemplateNames();
                     isApplyingPreset = true;
                     spinnerPresets.setSelection(existingIndex);
-                    prefs.edit().putString(KEY_SELECTED_PRESET, templates.get(existingIndex).name).apply();
+                    prefs.edit().putString(getPresetKeyForCurrentMode(), templates.get(existingIndex).name).apply();
                     isApplyingPreset = false;
                 })
                 .setNegativeButton(R.string.dialog_cancel, null)
@@ -348,63 +492,66 @@ public class MainActivity extends Activity {
         isApplyingPreset = false;
 
         ToneTemplate fallback = templates.get(newPos);
-        prefs.edit().putString(KEY_SELECTED_PRESET, fallback.name).apply();
-        applyTemplateValues(fallback.gains);
+        prefs.edit().putString(getPresetKeyForCurrentMode(), fallback.name).apply();
+        applyTemplateForCurrentMode(fallback);
     }
 
-    private void applyTemplateValues(int[] gains) {
+    private void applyTemplateForCurrentMode(ToneTemplate template) {
         SharedPreferences.Editor editor = prefs.edit();
         for (int b = 0; b < BAND_COUNT; b++) {
-            int clamped = clampDb(gains[b]);
+            int uiVal;
+            if (currentChannelMode == CHANNEL_MODE_LEFT) {
+                int valL = clampDb(template.hasSeparateLR ? template.gainsL[b] : template.gains[b]);
+                editor.putInt(BAND_KEYS_LEFT[b], valL);
+                uiVal = valL;
+            } else if (currentChannelMode == CHANNEL_MODE_RIGHT) {
+                int valR = clampDb(template.hasSeparateLR ? template.gainsR[b] : template.gains[b]);
+                editor.putInt(BAND_KEYS_RIGHT[b], valR);
+                uiVal = valR;
+            } else {
+                int valBoth = clampDb(template.gains[b]);
+                int valL = clampDb(template.hasSeparateLR ? template.gainsL[b] : valBoth);
+                int valR = clampDb(template.hasSeparateLR ? template.gainsR[b] : valBoth);
+                editor.putInt(BAND_KEYS[b], valBoth);
+                editor.putInt(BAND_KEYS_LEFT[b], valL);
+                editor.putInt(BAND_KEYS_RIGHT[b], valR);
+                uiVal = valBoth;
+            }
+
             isUpdatingBand[b] = true;
-            seekBars[b].setProgress(clamped + OFFSET);
-            String text = String.valueOf(clamped);
+            seekBars[b].setProgress(uiVal + OFFSET);
+            String text = String.valueOf(uiVal);
             editTexts[b].setText(text);
             editTexts[b].setSelection(text.length());
             isUpdatingBand[b] = false;
-            editor.putInt(BAND_KEYS[b], clamped);
         }
         editor.apply();
         applyAndEnsureBackgroundService();
     }
 
     private void restoreSavedValues() {
-        String savedPreset = prefs.getString(KEY_SELECTED_PRESET, "Neutral");
-        int presetIdx = 0;
-        for (int i = 0; i < templates.size(); i++) {
-            if (templates.get(i).name.equals(savedPreset)) {
-                presetIdx = i;
-                break;
-            }
-        }
-
-        isApplyingPreset = true;
-        spinnerPresets.setSelection(presetIdx, false);
-        isApplyingPreset = false;
-
-        SharedPreferences.Editor editor = prefs.edit();
-        for (int b = 0; b < BAND_COUNT; b++) {
-            int savedVal = clampDb(prefs.getInt(BAND_KEYS[b], 0));
-            editor.putInt(BAND_KEYS[b], savedVal);
-            isUpdatingBand[b] = true;
-            seekBars[b].setProgress(savedVal + OFFSET);
-            String text = String.valueOf(savedVal);
-            editTexts[b].setText(text);
-            editTexts[b].setSelection(text.length());
-            isUpdatingBand[b] = false;
-        }
-        editor.apply();
+        refreshUiForCurrentChannel();
     }
 
     private void saveAndApplyBand(int bandIndex, int dbValue) {
-        prefs.edit().putInt(BAND_KEYS[bandIndex], clampDb(dbValue)).apply();
+        int clamped = clampDb(dbValue);
+        SharedPreferences.Editor editor = prefs.edit();
+        if (currentChannelMode == CHANNEL_MODE_LEFT) {
+            editor.putInt(BAND_KEYS_LEFT[bandIndex], clamped);
+        } else if (currentChannelMode == CHANNEL_MODE_RIGHT) {
+            editor.putInt(BAND_KEYS_RIGHT[bandIndex], clamped);
+        } else {
+            editor.putInt(BAND_KEYS[bandIndex], clamped);
+            editor.putInt(BAND_KEYS_LEFT[bandIndex], clamped);
+            editor.putInt(BAND_KEYS_RIGHT[bandIndex], clamped);
+        }
+        editor.apply();
         applyAndEnsureBackgroundService();
     }
 
     private void applyAndEnsureBackgroundService() {
         ToneControlService.applyFromPreferences(this);
         ToneControlService.startOrUpdateService(this, null);
-        refreshDiagnosticStatus();
     }
 
     private void setupBandControls() {
@@ -413,15 +560,14 @@ public class MainActivity extends Activity {
             seekBars[index].setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
                 @Override
                 public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                    if (isUpdatingBand[index]) return;
                     int dbValue = clampDb(progress - OFFSET);
                     saveAndApplyBand(index, dbValue);
-                    if (!isUpdatingBand[index]) {
-                        isUpdatingBand[index] = true;
-                        String text = String.valueOf(dbValue);
-                        editTexts[index].setText(text);
-                        editTexts[index].setSelection(text.length());
-                        isUpdatingBand[index] = false;
-                    }
+                    isUpdatingBand[index] = true;
+                    String text = String.valueOf(dbValue);
+                    editTexts[index].setText(text);
+                    editTexts[index].setSelection(text.length());
+                    isUpdatingBand[index] = false;
                 }
 
                 @Override

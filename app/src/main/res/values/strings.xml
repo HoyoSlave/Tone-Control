@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Tone Control</string>
+    <string name="channel_label">Channel Mode</string>
+    <string name="channel_both">Both (L + R)</string>
+    <string name="channel_left">Left (L)</string>
+    <string name="channel_right">Right (R)</string>
     <string name="preset_label">Template</string>
     <string name="save_template">Save</string>
     <string name="delete_template">Delete</string>
