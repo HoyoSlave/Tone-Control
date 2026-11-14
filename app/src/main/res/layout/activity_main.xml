@@ -8,20 +8,13 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="24dp">
+        android:padding="16dp">
 
         <!-- Channel Selector (Both / L / R) -->
-        <TextView
-            style="?android:attr/textAppearanceMedium"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/channel_label" />
-
         <RadioGroup
             android:id="@+id/radio_group_channel"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
             android:orientation="horizontal">
 
             <RadioButton
@@ -48,17 +41,10 @@
         </RadioGroup>
 
         <!-- Preset / Template Section -->
-        <TextView
-            style="?android:attr/textAppearanceMedium"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="@string/preset_label" />
-
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="6dp"
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
@@ -87,7 +73,7 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
+            android:layout_marginTop="10dp"
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
@@ -101,7 +87,7 @@
 
             <EditText
                 android:id="@+id/edit_lowest_db"
-                android:layout_width="72dp"
+                android:layout_width="64dp"
                 android:layout_height="wrap_content"
                 android:gravity="end"
                 android:hint="@string/input_hint"
@@ -124,7 +110,7 @@
             android:id="@+id/seek_lowest"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="2dp"
             android:max="32"
             android:progress="16" />
 
@@ -161,7 +147,7 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
+            android:layout_marginTop="8dp"
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
@@ -175,7 +161,7 @@
 
             <EditText
                 android:id="@+id/edit_low_db"
-                android:layout_width="72dp"
+                android:layout_width="64dp"
                 android:layout_height="wrap_content"
                 android:gravity="end"
                 android:hint="@string/input_hint"
@@ -198,7 +184,7 @@
             android:id="@+id/seek_low"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="2dp"
             android:max="32"
             android:progress="16" />
 
@@ -235,7 +221,7 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
+            android:layout_marginTop="8dp"
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
@@ -249,7 +235,7 @@
 
             <EditText
                 android:id="@+id/edit_mid_db"
-                android:layout_width="72dp"
+                android:layout_width="64dp"
                 android:layout_height="wrap_content"
                 android:gravity="end"
                 android:hint="@string/input_hint"
@@ -272,7 +258,7 @@
             android:id="@+id/seek_mid"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="2dp"
             android:max="32"
             android:progress="16" />
 
@@ -309,7 +295,7 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
+            android:layout_marginTop="8dp"
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
@@ -323,7 +309,7 @@
 
             <EditText
                 android:id="@+id/edit_high_db"
-                android:layout_width="72dp"
+                android:layout_width="64dp"
                 android:layout_height="wrap_content"
                 android:gravity="end"
                 android:hint="@string/input_hint"
@@ -346,7 +332,7 @@
             android:id="@+id/seek_high"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="2dp"
             android:max="32"
             android:progress="16" />
 
@@ -383,7 +369,7 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
+            android:layout_marginTop="8dp"
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
@@ -397,7 +383,7 @@
 
             <EditText
                 android:id="@+id/edit_highest_db"
-                android:layout_width="72dp"
+                android:layout_width="64dp"
                 android:layout_height="wrap_content"
                 android:gravity="end"
                 android:hint="@string/input_hint"
@@ -420,7 +406,7 @@
             android:id="@+id/seek_highest"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="2dp"
             android:max="32"
             android:progress="16" />
 
