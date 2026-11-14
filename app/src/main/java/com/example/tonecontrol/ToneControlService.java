@@ -244,8 +244,8 @@ public class ToneControlService extends Service {
                             if (chCount >= STEREO_CHANNELS) {
                                 DynamicsProcessing.EqBand preBandL = new DynamicsProcessing.EqBand(true, cutoff, clampedGainL);
                                 DynamicsProcessing.EqBand preBandR = new DynamicsProcessing.EqBand(true, cutoff, clampedGainR);
-                                dp.setPreEqBandTo(CHANNEL_LEFT_INDEX, i, preBandL);
-                                dp.setPreEqBandTo(CHANNEL_RIGHT_INDEX, i, preBandR);
+                                dp.setPreEqBandByChannelIndex(CHANNEL_LEFT_INDEX, i, preBandL);
+                                dp.setPreEqBandByChannelIndex(CHANNEL_RIGHT_INDEX, i, preBandR);
                             } else {
                                 float avgGain = (clampedGainL + clampedGainR) / 2.0f;
                                 DynamicsProcessing.EqBand preBand = new DynamicsProcessing.EqBand(true, cutoff, avgGain);
